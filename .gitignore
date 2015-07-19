@@ -1,0 +1,12 @@
+.dub
+docs.json
+__dummy.html
+*.o
+*.obj
+/dub.selections.json
+*.visualdproj
+*.exe
+*.sln
+*.suo
+*.exe_cv
+*.pdb
