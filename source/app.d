@@ -1,6 +1,7 @@
 import std.stdio;
 import std.array;
 import std.conv;
+import std.file;
 
 import idjit;
 
@@ -85,6 +86,14 @@ BasicBlock compileNaiveBF(string input)
 
 void main(string[] args)
 {
+    if (args.length < 2)
+    {
+        writeln("jitbrained filepath");
+        return;
+    }
+
+    auto testString = args[1].readText();
+
     BasicBlock preludeBlock, endBlock;
 
     with (preludeBlock) with (Register)
@@ -99,21 +108,10 @@ void main(string[] args)
         ret;
     }
 
-    // Hello world (https://en.wikipedia.org/wiki/Brainfuck#Hello_World.21)
-    /*
-    immutable testString = 
-        `++++++++[>++++[>++>+++>+++>+<<<<-]>+>+>->>+[<]<-]` ~
-        `>>.>---.+++++++..+++.>>.<-.<.+++.------.--------.>>+.>++.`;
-    */
-    // Reverse (http://rosettacode.org/wiki/Reverse_a_string#Brainf.2A.2A.2A)
-    immutable testString = 
-        `,----- ----- [+++++ +++++ > , ----- -----]` ~
-        `<[.<]` ~
-        `+++++ +++++ +++ . --- .`;
-
     auto assembly = Assembly(preludeBlock, testString.compileNaiveBF(), endBlock);
     assembly.finalize();
     writeln("Byte count: ", assembly.buffer.length);
+    writeln("-------");
 
     ubyte[30_000] state;
     assembly(state.ptr);
