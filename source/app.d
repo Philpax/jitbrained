@@ -134,8 +134,7 @@ BasicBlock compileBF(string input, bool optimize)
                 // Generate label
                 auto labelString = instruction.value.to!string();
 
-                mov(EAX, _(Byte, EBX));
-                cmp(EAX, 0);
+                cmp(_(Byte, EBX), 0);
                 je("r" ~ labelString);
                 label("l" ~ labelString);
             }
@@ -144,8 +143,7 @@ BasicBlock compileBF(string input, bool optimize)
                 // Grab the last label off the stack, and use it
                 auto labelString = instruction.value.to!string();
 
-                mov(EAX, _(Byte, EBX));
-                cmp(EAX, 0);
+                cmp(_(Byte, EBX), 0);
                 jne("l" ~ labelString);
                 label("r" ~ labelString);
             }
