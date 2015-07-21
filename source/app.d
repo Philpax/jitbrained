@@ -93,11 +93,19 @@ BasicBlock compileBF(string input, bool optimize)
         {
             if (instruction.opcode == Opcode.Add)
             {
-                add(_(Byte, EBX), cast(byte)instruction.value);
+                // Avoid emitting a large immediate where possible
+                if (instruction.value == 1)
+                    inc(_(Byte, EBX));
+                else
+                    add(_(Byte, EBX), cast(byte)instruction.value);
             }
             else if (instruction.opcode == Opcode.Subtract)
             {
-                sub(_(Byte, EBX), cast(byte)instruction.value);
+                // Avoid emitting a large immediate where possible
+                if (instruction.value == 1)
+                    dec(_(Byte, EBX));
+                else
+                    sub(_(Byte, EBX), cast(byte)instruction.value);
             }
             else if (instruction.opcode == Opcode.Forward)
             {
