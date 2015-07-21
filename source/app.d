@@ -163,23 +163,27 @@ void main(string[] args)
         return;
     }
 
+    bool optimize = !args.canFind("--no-optimize");
     auto testString = args[1].readText();
 
     BasicBlock preludeBlock, endBlock;
 
     with (preludeBlock) with (Register)
     {
-        push(EBP);
-        mov(EBP, ESP);
+        if (!optimize)
+        {
+            push(EBP);
+            mov(EBP, ESP);
+        }
     }
 
     with (endBlock) with (Register)
     {
-        pop(EBP);
+        if (!optimize)
+            pop(EBP);
+
         ret;
     }
-
-    bool optimize = !args.canFind("--no-optimize");
 
     auto assembly = Assembly(preludeBlock, testString.compileBF(optimize), endBlock);
     assembly.finalize();
