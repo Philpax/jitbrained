@@ -113,7 +113,7 @@ BasicBlock compileBF(string input, bool optimize)
                 if (instruction.value == 1)
                     inc(EBX);
                 else if (instruction.value.fitsIn!byte)
-                    add(EBX, cast(byte)instruction.value);
+                    add(EBX, instruction.value);
                 else
                     add(EBX, instruction.value);
             }
@@ -123,7 +123,7 @@ BasicBlock compileBF(string input, bool optimize)
                 if (instruction.value == 1)
                     dec(EBX);
                 else if (instruction.value.fitsIn!byte)
-                    sub(EBX, cast(byte)instruction.value);
+                    sub(EBX, instruction.value);
                 else
                     sub(EBX, instruction.value);
             }
