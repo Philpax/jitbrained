@@ -181,7 +181,9 @@ BasicBlock compileOptimizedBF(string input)
             else if (instruction.opcode == Opcode.Forward)
             {
                 // Avoid emitting a large immediate where possible
-                if (instruction.value.fitsIn!byte)
+                if (instruction.value == 1)
+                    inc(EBX);
+                else if (instruction.value.fitsIn!byte)
                     add(EBX, cast(byte)instruction.value);
                 else
                     add(EBX, instruction.value);
@@ -189,7 +191,9 @@ BasicBlock compileOptimizedBF(string input)
             else if (instruction.opcode == Opcode.Backward)
             {
                 // Avoid emitting a large immediate where possible
-                if (instruction.value.fitsIn!byte)
+                if (instruction.value == 1)
+                    dec(EBX);
+                else if (instruction.value.fitsIn!byte)
                     sub(EBX, cast(byte)instruction.value);
                 else
                     sub(EBX, instruction.value);
