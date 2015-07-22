@@ -3,6 +3,7 @@ import std.array;
 import std.conv;
 import std.file;
 import std.algorithm;
+import std.range;
 
 import idjit;
 
@@ -112,8 +113,8 @@ BasicBlock compileBF(string input, bool optimize)
                 // Avoid emitting a large immediate where possible
                 if (instruction.value == 1)
                     inc(EBX);
-                else if (instruction.value.fitsIn!byte)
-                    add(EBX, instruction.value);
+                else if (instruction.value < 6)
+                    instruction.value.iota.each!(a => inc(EBX));
                 else
                     add(EBX, instruction.value);
             }
@@ -122,8 +123,8 @@ BasicBlock compileBF(string input, bool optimize)
                 // Avoid emitting a large immediate where possible
                 if (instruction.value == 1)
                     dec(EBX);
-                else if (instruction.value.fitsIn!byte)
-                    sub(EBX, instruction.value);
+                else if (instruction.value < 6)
+                    instruction.value.iota.each!(a => dec(EBX));
                 else
                     sub(EBX, instruction.value);
             }
@@ -197,5 +198,5 @@ void main(string[] args)
     writeln("-------");
 
     ubyte[30_000] state;
-    assembly(state.ptr);
+    //assembly(state.ptr);
 }
