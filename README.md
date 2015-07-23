@@ -1,5 +1,5 @@
 # jitbrained
-A JIT interpreter for Brainfuck. 
+A JIT compiler for Brainfuck. 
 
 ## Features
 * Does direct translation from Brainfuck to x86 assembly
