@@ -88,7 +88,7 @@ BasicBlock compileBF(string input, bool optimize)
     {
         // Load in array at EBX, as the D ABI guarantees it won't be 
         // trampled by function calls
-        mov(EBX, _(EBP, 8));
+        mov(EBX, dwordPtr(EBP, 8));
 
         foreach (instruction; ir)
         {
@@ -96,17 +96,17 @@ BasicBlock compileBF(string input, bool optimize)
             {
                 // Avoid emitting a large immediate where possible
                 if (instruction.value == 1)
-                    inc(_(Byte, EBX));
+                    inc(bytePtr(EBX));
                 else
-                    add(_(Byte, EBX), cast(byte)instruction.value);
+                    add(bytePtr(EBX), cast(byte)instruction.value);
             }
             else if (instruction.opcode == Opcode.Subtract)
             {
                 // Avoid emitting a large immediate where possible
                 if (instruction.value == 1)
-                    dec(_(Byte, EBX));
+                    dec(bytePtr(EBX));
                 else
-                    sub(_(Byte, EBX), cast(byte)instruction.value);
+                    sub(bytePtr(EBX), cast(byte)instruction.value);
             }
             else if (instruction.opcode == Opcode.Forward)
             {
@@ -130,20 +130,20 @@ BasicBlock compileBF(string input, bool optimize)
             }
             else if (instruction.opcode == Opcode.Output)
             {
-                mov(EAX, _(Byte, EBX));
+                mov(EAX, bytePtr(EBX));
                 call(&putchar);
             }
             else if (instruction.opcode == Opcode.Input)
             {
                 call(&getchar);
-                mov(_(Byte, EBX), EAX);
+                mov(bytePtr(EBX), EAX);
             }
             else if (instruction.opcode == Opcode.LeftBracket)
             {
                 // Generate label
                 auto labelString = instruction.value.to!string();
 
-                cmp(_(Byte, EBX), 0);
+                cmp(bytePtr(EBX), 0);
                 je("r" ~ labelString);
                 label("l" ~ labelString);
             }
@@ -152,7 +152,7 @@ BasicBlock compileBF(string input, bool optimize)
                 // Grab the last label off the stack, and use it
                 auto labelString = instruction.value.to!string();
 
-                cmp(_(Byte, EBX), 0);
+                cmp(bytePtr(EBX), 0);
                 jne("l" ~ labelString);
                 label("r" ~ labelString);
             }
@@ -198,5 +198,5 @@ void main(string[] args)
     writeln("-------");
 
     ubyte[30_000] state;
-    //assembly(state.ptr);
+    assembly(state.ptr);
 }
