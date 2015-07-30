@@ -161,6 +161,8 @@ BasicBlock compileBF(string input, bool optimize)
         }
     }
 
+    block.ret();
+
     return block;
 }
 
@@ -242,38 +244,18 @@ void main(string[] args)
     enforce(args.length > 1, "Expected a filename.");
     auto testString = args[1].readText();
 
+    byte[30_000] state;
     if (mode == Mode.compile)
     {
-        BasicBlock preludeBlock, endBlock;
-
-        with (preludeBlock) with (Register)
-        {
-            if (!optimize)
-            {
-                push(EBP);
-                mov(EBP, ESP);
-            }
-        }
-
-        with (endBlock) with (Register)
-        {
-            if (!optimize)
-                pop(EBP);
-
-            ret;
-        }
-
-        auto assembly = Assembly(preludeBlock, testString.compileBF(optimize), endBlock);
+        auto assembly = Assembly(testString.compileBF(optimize));
         assembly.finalize();
         writeln("Byte count: ", assembly.buffer.length);
         writeln("-------");
 
-        byte[30_000] state;
         assembly(state.ptr);
     }
     else if (mode == Mode.interpret)
     {
-        byte[30_000] state;
         testString.interpret(state);
     }
 }
