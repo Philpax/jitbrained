@@ -9,7 +9,7 @@ import std.exception;
 
 import idjit;
 
-BasicBlock compileBF(string input, bool optimize)
+BasicBlock compileBF(string input, bool optimize, bool dumpIR)
 {
     BasicBlock block;
 
@@ -82,8 +82,8 @@ BasicBlock compileBF(string input, bool optimize)
         }
     }
 
-    // Dump out IR
-    ir.each!writeln();
+    if (dumpIR)
+        ir.each!writeln();
 
     // Build machine code
     with (block) with (Register) with (OperandType)
@@ -236,10 +236,12 @@ void main(string[] args)
 
     Mode mode = Mode.compile;
     bool optimize = true;
+    bool dumpIR = false;
 
     args.getopt(
         "mode", "Control whether to compile or interpret.", &mode,
-        "optimize", "Control whether to optimize the generated machine code.", &optimize);
+        "optimize", "Control whether to optimize the generated machine code.", &optimize,
+        "dump-ir", "Control whether to dump the final IR.", &dumpIR);
 
     enforce(args.length > 1, "Expected a filename.");
     auto testString = args[1].readText();
@@ -247,7 +249,7 @@ void main(string[] args)
     byte[30_000] state;
     if (mode == Mode.compile)
     {
-        auto assembly = Assembly(testString.compileBF(optimize));
+        auto assembly = Assembly(testString.compileBF(optimize, dumpIR));
         assembly.finalize();
         writeln("Byte count: ", assembly.buffer.length);
         writeln("-------");
