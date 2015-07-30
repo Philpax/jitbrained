@@ -4,6 +4,8 @@ import std.conv;
 import std.file;
 import std.algorithm;
 import std.range;
+import std.getopt;
+import std.exception;
 
 import idjit;
 
@@ -162,41 +164,116 @@ BasicBlock compileBF(string input, bool optimize)
     return block;
 }
 
-void main(string[] args)
+// Reference interpreter; does no optimization
+void interpret(string input, byte[] state)
 {
-    if (args.length < 2)
+    size_t cell = 0;
+    size_t[size_t] jumps;
+
+    size_t[] jumpStack;
+
+    foreach (index, c; input.enumerate())
     {
-        writeln("jitbrained filepath");
-        return;
-    }
-
-    bool optimize = !args.canFind("--no-optimize");
-    auto testString = args[1].readText();
-
-    BasicBlock preludeBlock, endBlock;
-
-    with (preludeBlock) with (Register)
-    {
-        if (!optimize)
+        if (c == '[')
         {
-            push(EBP);
-            mov(EBP, ESP);
+            jumpStack ~= index;
+        }
+        else if (c == ']')
+        {
+            auto matchingIndex = jumpStack[$-1];
+            jumpStack.length--;
+
+            jumps[matchingIndex] = index;
+            jumps[index] = matchingIndex;
         }
     }
 
-    with (endBlock) with (Register)
+    for (size_t ip = 0; ip < input.length; ++ip)
     {
-        if (!optimize)
-            pop(EBP);
+        switch (input[ip])
+        {
+        case '+':
+            state[cell]++;
+            break;
+        case '-':
+            state[cell]--;
+            break;
+        case '>':
+            cell++;
+            break;
+        case '<':
+            cell--;
+            break;
+        case '[':
+            if (state[cell] == 0)
+                ip = jumps[ip];
+            break;
+        case ']':
+            if (state[cell] != 0)
+                ip = jumps[ip];
+            break;
+        case '.':
+            putchar(state[cell]);
+            break;
+        case ',':
+            state[cell] = cast(byte)getchar();
+            break;
+        default:
+            break;
+        }
+    }
+}
 
-        ret;
+void main(string[] args)
+{
+    enum Mode
+    {
+        compile,
+        interpret
     }
 
-    auto assembly = Assembly(preludeBlock, testString.compileBF(optimize), endBlock);
-    assembly.finalize();
-    writeln("Byte count: ", assembly.buffer.length);
-    writeln("-------");
+    Mode mode = Mode.compile;
+    bool optimize = true;
 
-    ubyte[30_000] state;
-    assembly(state.ptr);
+    args.getopt(
+        "mode", "Control whether to compile or interpret.", &mode,
+        "optimize", "Control whether to optimize the generated machine code.", &optimize);
+
+    enforce(args.length > 1, "Expected a filename.");
+    auto testString = args[1].readText();
+
+    if (mode == Mode.compile)
+    {
+        BasicBlock preludeBlock, endBlock;
+
+        with (preludeBlock) with (Register)
+        {
+            if (!optimize)
+            {
+                push(EBP);
+                mov(EBP, ESP);
+            }
+        }
+
+        with (endBlock) with (Register)
+        {
+            if (!optimize)
+                pop(EBP);
+
+            ret;
+        }
+
+        auto assembly = Assembly(preludeBlock, testString.compileBF(optimize), endBlock);
+        assembly.finalize();
+        writeln("Byte count: ", assembly.buffer.length);
+        writeln("-------");
+
+        byte[30_000] state;
+        assembly(state.ptr);
+    }
+    else if (mode == Mode.interpret)
+    {
+        byte[30_000] state;
+        testString.interpret(state);
+    }
 }
