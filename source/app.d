@@ -6,10 +6,11 @@ import std.algorithm;
 import std.range;
 import std.getopt;
 import std.exception;
+import std.datetime;
 
 import idjit;
 
-BasicBlock compileBF(string input, bool optimize, bool dumpIR)
+void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profile)
 {
     BasicBlock block;
 
@@ -34,6 +35,9 @@ BasicBlock compileBF(string input, bool optimize, bool dumpIR)
     uint labelIndex = 0;
     uint[] labelStack;
     Instruction[] ir;
+
+    StopWatch compileTimer, executionTimer;
+    compileTimer.start();
 
     void addFoldableInstruction(Opcode opcode)
     {
@@ -163,16 +167,35 @@ BasicBlock compileBF(string input, bool optimize, bool dumpIR)
 
     block.ret();
 
-    return block;
+    auto assembly = Assembly(block);
+    assembly.finalize();
+
+    compileTimer.stop();
+
+    executionTimer.start();
+    assembly(state.ptr);
+    executionTimer.stop();
+
+    if (profile)
+    {
+        writeln("------- STATS -------");
+        writeln("  Byte count: ", assembly.buffer.length);
+        writeln("  Compile time: ", cast(Duration)compileTimer.peek);
+        writeln("  Execution time: ", cast(Duration)executionTimer.peek);
+        writeln("---------------------");
+    }
 }
 
 // Reference interpreter; does no optimization
-void interpret(string input, byte[] state)
+void interpret(string input, byte[] state, bool profile)
 {
     size_t cell = 0;
     size_t[size_t] jumps;
 
     size_t[] jumpStack;
+
+    StopWatch executionTimer;
+    executionTimer.start();
 
     foreach (index, c; input.enumerate())
     {
@@ -224,6 +247,15 @@ void interpret(string input, byte[] state)
             break;
         }
     }
+
+    executionTimer.stop();
+
+    if (profile)
+    {
+        writeln("------- STATS -------");
+        writeln("  Execution time: ", cast(Duration)executionTimer.peek);
+        writeln("---------------------");
+    }
 }
 
 void main(string[] args)
@@ -237,27 +269,20 @@ void main(string[] args)
     Mode mode = Mode.compile;
     bool optimize = true;
     bool dumpIR = false;
+    bool profile = false;
 
     args.getopt(
         "mode", "Control whether to compile or interpret.", &mode,
         "optimize", "Control whether to optimize the generated machine code.", &optimize,
-        "dump-ir", "Control whether to dump the final IR.", &dumpIR);
+        "dump-ir", "Control whether to dump the final IR.", &dumpIR,
+        "profile", "Control whether to provide statistics on timings and generated code.", &profile);
 
     enforce(args.length > 1, "Expected a filename.");
     auto testString = args[1].readText();
 
     byte[30_000] state;
     if (mode == Mode.compile)
-    {
-        auto assembly = Assembly(testString.compileBF(optimize, dumpIR));
-        assembly.finalize();
-        writeln("Byte count: ", assembly.buffer.length);
-        writeln("-------");
-
-        assembly(state.ptr);
-    }
+        testString.compile(state, optimize, dumpIR, profile);
     else if (mode == Mode.interpret)
-    {
-        testString.interpret(state);
-    }
+        testString.interpret(state, profile);
 }
