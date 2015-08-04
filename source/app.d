@@ -187,7 +187,7 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
 }
 
 // Reference interpreter; does no optimization
-void interpret(string input, byte[] state, bool profile)
+void interpret(string input, byte[] state, bool profile, bool stepDebug)
 {
     size_t cell = 0;
     size_t[size_t] jumps;
@@ -219,29 +219,49 @@ void interpret(string input, byte[] state, bool profile)
         {
         case '+':
             state[cell]++;
+            if (stepDebug)
+                writefln("%s: state[%s] = %s", ip, cell, cast(int)state[cell]);
             break;
         case '-':
             state[cell]--;
+            if (stepDebug)
+                writefln("%s: state[%s] = %s", ip, cell, cast(int)state[cell]);
             break;
         case '>':
             cell++;
+            if (stepDebug)
+                writefln("%s: cell = %s", ip, cell);
             break;
         case '<':
             cell--;
+            if (stepDebug)
+                writefln("%s: cell = %s", ip, cell);
             break;
         case '[':
             if (state[cell] == 0)
+            {
+                if (stepDebug)
+                    writefln("%s: if (state[%s] == 0) jmp %s", ip, cell, jumps[ip]+1);
                 ip = jumps[ip];
+            }
             break;
         case ']':
             if (state[cell] != 0)
+            {
+                if (stepDebug)
+                    writefln("%s: if (state[%s] == 0) jmp %s", ip, cell, jumps[ip]+1);
                 ip = jumps[ip];
+            }
             break;
         case '.':
             putchar(state[cell]);
+            if (stepDebug)
+                writefln("%s: putchar(state[%s])", ip, cell);
             break;
         case ',':
             state[cell] = cast(byte)getchar();
+            if (stepDebug)
+                writefln("%s: state[%s] = getchar()", ip, cell);
             break;
         default:
             break;
@@ -270,11 +290,13 @@ void main(string[] args)
     bool optimize = true;
     bool dumpIR = false;
     bool profile = false;
+    bool stepDebug = false;
 
     args.getopt(
         "mode", "Control whether to compile or interpret.", &mode,
         "optimize", "Control whether to optimize the generated machine code.", &optimize,
         "dump-ir", "Control whether to dump the final IR.", &dumpIR,
+        "step-debug", "Print out the value of the current cell at each interpretation step.", &stepDebug,
         "profile", "Control whether to provide statistics on timings and generated code.", &profile);
 
     enforce(args.length > 1, "Expected a filename.");
@@ -284,5 +306,5 @@ void main(string[] args)
     if (mode == Mode.compile)
         testString.compile(state, optimize, dumpIR, profile);
     else if (mode == Mode.interpret)
-        testString.interpret(state, profile);
+        testString.interpret(state, profile, stepDebug);
 }
