@@ -23,7 +23,10 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
         Output,
         Input,
         LeftBracket,
-        RightBracket
+        RightBracket,
+
+        // No BF equivalents
+        Move,
     }
 
     struct Instruction
@@ -83,6 +86,30 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
             // Grab the last label off the stack, and use it
             ir ~= Instruction(Opcode.RightBracket, labelStack[$-1]);
             labelStack.length--;
+        }
+    }
+
+    if (optimize)
+    {
+        // Apply pinhole optimizations
+        for (size_t i = 0; i < ir.length; ++i)
+        {
+            enum ZeroPattern = 
+                [Opcode.LeftBracket, Opcode.Subtract, Opcode.RightBracket];
+
+            bool equalsOpcodePattern(const(Opcode[]) pattern)
+            {
+                return 
+                    i < ir.length - pattern.length && 
+                    ir[i..i+pattern.length].equal!((a, b) => a.opcode == b)(pattern);
+            }
+
+            if (equalsOpcodePattern(ZeroPattern))
+            {
+                ir[i].opcode = Opcode.Move;
+                ir[i].value = 0;
+                ir = ir.remove(i+1, i+2);
+            }
         }
     }
 
@@ -161,6 +188,14 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
                 cmp(bytePtr(EBX), 0);
                 jne("l" ~ labelString);
                 label("r" ~ labelString);
+            }
+            else if (instruction.opcode == Opcode.Move)
+            {
+                mov(bytePtr(EBX), cast(byte)instruction.value);
+            }
+            else
+            {
+                assert(false, "Invalid IR opcode!");
             }
         }
     }
