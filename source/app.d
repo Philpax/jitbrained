@@ -91,7 +91,7 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
 
     if (optimize)
     {
-        // Apply pinhole optimizations
+        // Apply peephole optimizations
         for (size_t i = 0; i < ir.length; ++i)
         {
             enum ZeroPattern = 
