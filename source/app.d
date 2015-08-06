@@ -12,7 +12,7 @@ import idjit;
 
 void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profile)
 {
-    BasicBlock block;
+    Block block;
 
     enum Opcode
     {
