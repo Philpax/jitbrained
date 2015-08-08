@@ -7,6 +7,7 @@ import std.range;
 import std.getopt;
 import std.exception;
 import std.datetime;
+import std.typecons;
 
 import idjit;
 
@@ -27,6 +28,7 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
 
         // No BF equivalents
         Move,
+        Move32
     }
 
     struct Instruction
@@ -91,25 +93,65 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
 
     if (optimize)
     {
-        // Apply peephole optimizations
-        for (size_t i = 0; i < ir.length; ++i)
+        bool continueRunning = true;
+
+        while (continueRunning)
         {
-            enum ZeroPattern = 
-                [Opcode.LeftBracket, Opcode.Subtract, Opcode.RightBracket];
+            bool madeChanges = false;
 
-            bool equalsOpcodePattern(const(Opcode[]) pattern)
+            // Apply peephole optimizations
+            for (size_t i = 0; i < ir.length; ++i)
             {
-                return 
-                    i < ir.length - pattern.length && 
-                    ir[i..i+pattern.length].equal!((a, b) => a.opcode == b)(pattern);
+                enum ZeroPattern = 
+                    [Opcode.LeftBracket, Opcode.Subtract, Opcode.RightBracket];
+
+                bool equalsOpcodePattern(const(Opcode[]) pattern)
+                {
+                    return 
+                        i < ir.length - pattern.length && 
+                        ir[i..i+pattern.length].equal!((a, b) => a.opcode == b)(pattern);
+                }
+
+                if (equalsOpcodePattern(ZeroPattern))
+                {
+                    ir[i].opcode = Opcode.Move;
+                    ir[i].value = 0;
+                    ir = ir.remove(i+1, i+2);
+
+                    madeChanges = true;
+                }
+
+                enum FourByteLoadPattern =
+                    [Opcode.Move, Opcode.Forward, Opcode.Move, 
+                    Opcode.Forward, Opcode.Move, Opcode.Forward, Opcode.Move];
+
+                if (equalsOpcodePattern(FourByteLoadPattern))
+                {
+                    auto slice = ir[i..i+FourByteLoadPattern.length];
+
+                    if (slice.dropOne.stride(2).all!(a => a.value == 1) && 
+                        slice.stride(2).all!(a => a.value.fitsIn!byte))
+                    {
+                        byte a = cast(byte)slice[0].value;
+                        byte b = cast(byte)slice[2].value;
+                        byte c = cast(byte)slice[4].value;
+                        byte d = cast(byte)slice[6].value;
+                        uint value = a << 24 | b << 16 | c << 8 | d;
+
+                        ir[i].opcode = Opcode.Move32;
+                        // Ensure no conversions take place
+                        ir[i].value = *cast(int*)&value;
+
+                        ir[i+1].opcode = Opcode.Forward;
+                        ir[i+1].value = 3;
+
+                        ir = ir.remove(tuple(i+2, i+FourByteLoadPattern.length));
+                        madeChanges = true;
+                    }
+                }
             }
 
-            if (equalsOpcodePattern(ZeroPattern))
-            {
-                ir[i].opcode = Opcode.Move;
-                ir[i].value = 0;
-                ir = ir.remove(i+1, i+2);
-            }
+            continueRunning = madeChanges;
         }
     }
 
@@ -192,6 +234,10 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
             else if (instruction.opcode == Opcode.Move)
             {
                 mov(bytePtr(EBX), cast(byte)instruction.value);
+            }
+            else if (instruction.opcode == Opcode.Move32)
+            {
+                mov(dwordPtr(EBX), instruction.value);
             }
             else
             {
