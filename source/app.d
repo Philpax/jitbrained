@@ -149,6 +149,18 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
                         madeChanges = true;
                     }
                 }
+
+                enum FoldableInstructions = 
+                    [Opcode.Add, Opcode.Subtract, Opcode.Forward, Opcode.Backward];
+
+                if (i < ir.length - 1 && 
+                    ir[i].opcode == ir[i+1].opcode && 
+                    FoldableInstructions.canFind(ir[i].opcode))
+                {
+                    ir[i].value += ir[i+1].value;
+                    ir = ir.remove(i+1);
+                    madeChanges = true;
+                }
             }
 
             continueRunning = madeChanges;
