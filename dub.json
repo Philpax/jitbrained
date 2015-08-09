@@ -4,6 +4,6 @@
 	"copyright": "Copyright © 2015, Philpax",
 	"authors": ["Philpax"],
 	"dependencies": {
-		"idjit": ">=0.0.1"
+		"djitt": ">=0.0.1"
 	}
 }

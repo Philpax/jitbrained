@@ -9,7 +9,7 @@ import std.exception;
 import std.datetime;
 import std.typecons;
 
-import idjit;
+import djitt;
 
 void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profile)
 {
