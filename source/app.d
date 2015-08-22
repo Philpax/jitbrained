@@ -171,7 +171,7 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
         ir.each!writeln();
 
     // Build machine code
-    with (block) with (Register) with (OperandType)
+    with (block)
     {
         // Load in array at EBX, as the D ABI guarantees it won't be 
         // trampled by function calls
@@ -217,13 +217,13 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
             }
             else if (instruction.opcode == Opcode.Output)
             {
-                mov(EAX, bytePtr(EBX));
+                mov(AL, bytePtr(EBX));
                 call(&putchar);
             }
             else if (instruction.opcode == Opcode.Input)
             {
                 call(&getchar);
-                mov(bytePtr(EBX), EAX);
+                mov(bytePtr(EBX), AL);
             }
             else if (instruction.opcode == Opcode.LeftBracket)
             {
