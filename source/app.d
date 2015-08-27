@@ -173,9 +173,44 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
     // Build machine code
     with (block)
     {
-        // Load in array at EBX, as the D ABI guarantees it won't be 
-        // trampled by function calls
-        mov(EBX, dwordPtr(EBP, 8));
+        version (X86_64)
+        {
+            alias BufferRegister = RBX;
+            alias PutcharRegister = RCX;
+            alias GetcharRegister = RDX;
+        }
+        else
+        {
+            alias BufferRegister = EBX;
+            alias PutcharRegister = ECX;
+            alias GetcharRegister = EDX;
+        }
+
+        void saveRegisters()
+        {
+            push(PutcharRegister);
+            push(GetcharRegister);
+        }
+
+        void loadRegisters()
+        {
+            pop(GetcharRegister);
+            pop(PutcharRegister);
+        }
+
+        // Load array into register
+        version (X86_64)
+        {
+            version (Posix)
+                mov(BufferRegister, RDI);
+            else version (Windows)
+                mov(BufferRegister, RCX);
+        }
+        else
+            mov(BufferRegister, dwordPtr(EBP, 8));
+
+        mov(PutcharRegister, &putchar);
+        mov(GetcharRegister, &getchar);
 
         foreach (instruction; ir)
         {
@@ -183,54 +218,54 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
             {
                 // Avoid emitting a large immediate where possible
                 if (instruction.value == 1)
-                    inc(bytePtr(EBX));
+                    inc(bytePtr(BufferRegister));
                 else
-                    add(bytePtr(EBX), cast(byte)instruction.value);
+                    add(bytePtr(BufferRegister), cast(byte)instruction.value);
             }
             else if (instruction.opcode == Opcode.Subtract)
             {
                 // Avoid emitting a large immediate where possible
                 if (instruction.value == 1)
-                    dec(bytePtr(EBX));
+                    dec(bytePtr(BufferRegister));
                 else
-                    sub(bytePtr(EBX), cast(byte)instruction.value);
+                    sub(bytePtr(BufferRegister), cast(byte)instruction.value);
             }
             else if (instruction.opcode == Opcode.Forward)
             {
                 // Avoid emitting a large immediate where possible
                 if (instruction.value == 1)
-                    inc(EBX);
-                else if (instruction.value < 6)
-                    instruction.value.iota.each!(a => inc(EBX));
+                    inc(BufferRegister);
                 else
-                    add(EBX, instruction.value);
+                    add(BufferRegister, instruction.value);
             }
             else if (instruction.opcode == Opcode.Backward)
             {
                 // Avoid emitting a large immediate where possible
                 if (instruction.value == 1)
-                    dec(EBX);
-                else if (instruction.value < 6)
-                    instruction.value.iota.each!(a => dec(EBX));
+                    dec(BufferRegister);
                 else
-                    sub(EBX, instruction.value);
+                    sub(BufferRegister, instruction.value);
             }
             else if (instruction.opcode == Opcode.Output)
             {
-                mov(AL, bytePtr(EBX));
-                call(&putchar);
+                saveRegisters();
+                mov(AL, bytePtr(BufferRegister));
+                call(PutcharRegister);
+                loadRegisters();
             }
             else if (instruction.opcode == Opcode.Input)
             {
-                call(&getchar);
-                mov(bytePtr(EBX), AL);
+                saveRegisters();
+                call(GetcharRegister);
+                mov(bytePtr(BufferRegister), AL);
+                loadRegisters();
             }
             else if (instruction.opcode == Opcode.LeftBracket)
             {
                 // Generate label
                 auto labelString = instruction.value.to!string();
 
-                cmp(bytePtr(EBX), 0);
+                cmp(bytePtr(BufferRegister), 0);
                 je("r" ~ labelString);
                 label("l" ~ labelString);
             }
@@ -239,17 +274,17 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
                 // Grab the last label off the stack, and use it
                 auto labelString = instruction.value.to!string();
 
-                cmp(bytePtr(EBX), 0);
+                cmp(bytePtr(BufferRegister), 0);
                 jne("l" ~ labelString);
                 label("r" ~ labelString);
             }
             else if (instruction.opcode == Opcode.Move)
             {
-                mov(bytePtr(EBX), cast(byte)instruction.value);
+                mov(bytePtr(BufferRegister), cast(byte)instruction.value);
             }
             else if (instruction.opcode == Opcode.Move32)
             {
-                mov(dwordPtr(EBX), instruction.value);
+                mov(dwordPtr(BufferRegister), instruction.value);
             }
             else
             {
