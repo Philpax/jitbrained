@@ -173,30 +173,10 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
     // Build machine code
     with (block)
     {
-        version (X86_64)
-        {
-            alias BufferRegister = RBX;
-            alias PutcharRegister = RCX;
-            alias GetcharRegister = RDX;
-        }
-        else
-        {
-            alias BufferRegister = EBX;
-            alias PutcharRegister = ECX;
-            alias GetcharRegister = EDX;
-        }
+        alias BufferRegister = XBX;
 
-        void saveRegisters()
-        {
-            push(PutcharRegister);
-            push(GetcharRegister);
-        }
-
-        void loadRegisters()
-        {
-            pop(GetcharRegister);
-            pop(PutcharRegister);
-        }
+        push(XBP);
+        mov(XBP, XSP);
 
         // Load array into register
         version (X86_64)
@@ -209,8 +189,10 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
         else
             mov(BufferRegister, dwordPtr(EBP, 8));
 
-        mov(PutcharRegister, &putchar);
-        mov(GetcharRegister, &getchar);
+        mov(XAX, &putchar);
+        push(XAX); // [XBP-4 or 8]
+        mov(XAX, &getchar);
+        push(XAX); // [XBP-8 or 16]
 
         foreach (instruction; ir)
         {
@@ -248,17 +230,38 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
             }
             else if (instruction.opcode == Opcode.Output)
             {
-                saveRegisters();
                 mov(AL, bytePtr(BufferRegister));
-                call(PutcharRegister);
-                loadRegisters();
+                version (X86_64)
+                {
+                    version (Posix)
+                    {
+                        mov(RDI, RAX);
+                        call(qwordPtr(RBP, -8));
+                    }
+                    else version (Windows)
+                    {
+                        mov(RCX, RAX);
+                        sub(RSP, 32);
+                        call(qwordPtr(RBP, -8));
+                        add(RSP, 32);
+                    }
+                }
+                else
+                {
+                    call(dwordPtr(EBP, -4));
+                }
             }
             else if (instruction.opcode == Opcode.Input)
             {
-                saveRegisters();
-                call(GetcharRegister);
+                version (X86_64)
+                {
+                    call(qwordPtr(RBP, -16));
+                }
+                else
+                {
+                    call(dwordPtr(EBP, -8));
+                }
                 mov(bytePtr(BufferRegister), AL);
-                loadRegisters();
             }
             else if (instruction.opcode == Opcode.LeftBracket)
             {
@@ -291,9 +294,13 @@ void compile(string input, byte[] state, bool optimize, bool dumpIR, bool profil
                 assert(false, "Invalid IR opcode!");
             }
         }
-    }
 
-    block.ret();
+        pop(XAX);
+        pop(XAX);
+
+        pop(XBP);
+        ret();
+    }
 
     auto assembly = Assembly(block);
     assembly.finalize();
